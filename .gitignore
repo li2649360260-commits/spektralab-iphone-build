@@ -1,0 +1,5 @@
+/upstream/
+/output/
+*.ipa
+*.xcarchive/
+*.xcresult/

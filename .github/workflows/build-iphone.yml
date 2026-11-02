@@ -1,0 +1,70 @@
+name: Build iPhone IPA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-iphone.yml
+      - scripts/**
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: Personal app bundle identifier
+        required: true
+        default: org.spektrafork.iphone
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iphone-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - name: Check out build tools
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Check out the pinned open-source iOS port
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: lyolomeister/RA4
+          ref: 51e1e15fcbd0f192b9fbd651d71c73912c1cafbb
+          path: upstream
+          persist-credentials: false
+
+      - name: Compile and package the iPhone application
+        shell: bash
+        env:
+          APP_BUNDLE_ID: ${{ inputs.bundle_id || 'org.spektrafork.iphone' }}
+        run: bash scripts/build-iphone.sh upstream output/ios
+
+      - name: Save the IPA and installation notes
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: RA4-iPhone-unsigned
+          path: |
+            output/ios/RA4-iPhone-unsigned.ipa
+            output/ios/BUILD-INFO.txt
+            output/ios/SHA256SUMS.txt
+            output/ios/SpektraProbe.entitlements
+            output/ios/INSTALL-iPhone.zh-CN.md
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Save build diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: iphone-build-diagnostics
+          path: |
+            output/ios/build.log
+            output/ios/Build.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
